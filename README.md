@@ -1,6 +1,6 @@
 # trapnet
 
-Proyecto de honeypot para captura y análisis de ataques con IA.
+Proyecto: honeypot para captura y análisis de ataques con IA.
 
 ## Módulos iniciales
 

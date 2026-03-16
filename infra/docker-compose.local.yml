@@ -1,0 +1,10 @@
+services:
+  collector-api:
+    build: ../collector-api
+    ports:
+      - "8000:8000"
+
+  honeypot-sensor:
+    build: ../honeypot-sensor
+    depends_on:
+      - collector-api
