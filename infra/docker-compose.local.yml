@@ -8,3 +8,17 @@ services:
     build: ../forwarder
     depends_on:
       - collector-api
+
+  cowrie:
+    image: cowrie/cowrie:latest
+    container_name: trapnet-cowrie
+    ports:
+      - "2222:2222"
+    volumes:
+      - cowrie-var:/cowrie/cowrie-git/var
+      - cowrie-etc:/cowrie/cowrie-git/etc
+    restart: unless-stopped
+
+volumes:
+  cowrie-var:
+  cowrie-etc:
