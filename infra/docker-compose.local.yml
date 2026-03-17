@@ -1,6 +1,14 @@
 services:
   collector-api:
     build: ../collector-api
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: trapnet
+      DB_USER: trapnet
+      DB_PASSWORD: trapnet
     ports:
       - "8000:8000"
 
@@ -26,6 +34,20 @@ services:
       - cowrie-etc:/cowrie/cowrie-git/etc
     restart: unless-stopped
 
+  postgres:
+    image: postgres:16
+    container_name: trapnet-postgres
+    environment:
+      POSTGRES_DB: trapnet
+      POSTGRES_USER: trapnet
+      POSTGRES_PASSWORD: trapnet
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
 volumes:
   cowrie-var:
   cowrie-etc:
+  postgres-data:
