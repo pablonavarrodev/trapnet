@@ -8,6 +8,13 @@ services:
     build: ../forwarder
     depends_on:
       - collector-api
+      - cowrie
+    environment:
+      COLLECTOR_API_URL: http://collector-api:8000
+      COWRIE_LOG_PATH: /cowrie/var/log/cowrie/cowrie.json
+      POLL_INTERVAL_SECONDS: 1
+    volumes:
+      - cowrie-var:/cowrie/var:ro
 
   cowrie:
     image: cowrie/cowrie:latest
