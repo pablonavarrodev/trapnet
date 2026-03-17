@@ -1,23 +1,61 @@
-from datetime import datetime, UTC
-import requests
+import json
+import time
+from pathlib import Path
 
-def main():
+from app.config import COWRIE_LOG_PATH, POLL_INTERVAL_SECONDS
+from app.parser import parse_cowrie_event
+from app.sender import send_event
 
-    event = {
-        "event_type": "ssh_login_attempt",
-        "source_ip": "127.0.0.1",
-        "timestamp": datetime.now(UTC).isoformat(),
-        "session_id": "session-local-001",
-        "username": "root",
-        "password": "123456",
-        "success": False,
-    }
+
+def process_line(line: str) -> None:
+    try:
+        raw_event = json.loads(line)
+    except json.JSONDecodeError as exc:
+        print(f"[forwarder] invalid json line: {exc}")
+        return
+
+    parsed_event = parse_cowrie_event(raw_event)
+
+    if parsed_event is None:
+        eventid = raw_event.get("eventid", "unknown")
+        print(f"[forwarder] ignored event: {eventid}")
+        return
 
     try:
-        response = requests.post("http://collector-api:8000/events", json=event, timeout=5)
-        print("Event sent:", response.status_code, response.text)
+        send_event(parsed_event)
+        print(
+            f"[forwarder] sent event type={parsed_event['event_type']} session={parsed_event['session_id']}"
+        )
     except Exception as exc:
-        print("Error sending event:", exc)
+        print(f"[forwarder] failed to send event: {exc}")
+
+
+def tail_file_forever(filepath: str) -> None:
+    path = Path(filepath)
+
+    while not path.exists():
+        print(f"[forwarder] waiting for cowrie log file: {filepath}")
+        time.sleep(POLL_INTERVAL_SECONDS)
+
+    print(f"[forwarder] reading cowrie log file: {filepath}")
+
+    with path.open("r", encoding="utf-8") as file:
+        file.seek(0, 2)
+
+        while True:
+            line = file.readline()
+
+            if not line:
+                time.sleep(POLL_INTERVAL_SECONDS)
+                continue
+
+            process_line(line)
+
+
+def main() -> None:
+    print("[forwarder] starting cowrie forwarder...")
+    tail_file_forever(COWRIE_LOG_PATH)
+
 
 if __name__ == "__main__":
     main()
