@@ -19,5 +19,5 @@ def main():
     except Exception as exc:
         print("Error sending event:", exc)
 
-    if __name__ == "__main__":
-        main()
+if __name__ == "__main__":
+    main()

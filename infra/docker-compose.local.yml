@@ -4,7 +4,7 @@ services:
     ports:
       - "8000:8000"
 
-  honeypot-sensor:
-    build: ../honeypot-sensor
+  forwarder:
+    build: ../forwarder
     depends_on:
       - collector-api
