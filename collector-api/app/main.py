@@ -1,3 +1,5 @@
+import time
+
 from fastapi import FastAPI
 from sqlalchemy import text
 
@@ -5,19 +7,37 @@ from app.db import Base, engine, SessionLocal
 from app.models.event import AttackEventModel
 from app.schemas.event import AttackEvent
 from sqlalchemy import func
+from sqlalchemy.exc import OperationalError
 
 app = FastAPI(title="trapnet collector")
 
 
 @app.on_event("startup")
 def on_startup():
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
-    try:
-        db.execute(text("SELECT 1"))
-        print("[collector] database connection established")
-    finally:
-        db.close()
+    max_retries = 15
+    retry_delay = 2
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            Base.metadata.create_all(bind=engine)
+
+            db = SessionLocal()
+            try:
+                db.execute(text("SELECT 1"))
+            finally:
+                db.close()
+
+            print("[collector] database connection established")
+            return
+
+        except OperationalError as exc:
+            print(
+                f"[collector] database not ready yet "
+                f"(attempt {attempt}/{max_retries}): {exc}"
+            )
+            time.sleep(retry_delay)
+
+    raise RuntimeError("[collector] could not connect to database after several retries")
 
 
 @app.get("/health")
