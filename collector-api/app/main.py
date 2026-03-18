@@ -4,6 +4,7 @@ from sqlalchemy import text
 from app.db import Base, engine, SessionLocal
 from app.models.event import AttackEventModel
 from app.schemas.event import AttackEvent
+from sqlalchemy import func
 
 app = FastAPI(title="trapnet collector")
 
@@ -112,6 +113,31 @@ def get_session_events(session_id: str):
                 "raw_event": event.raw_event,
             }
             for event in events
+        ]
+    finally:
+        db.close()
+
+
+@app.get("/stats/source-ip")
+def stats_by_source_ip():
+    db = SessionLocal()
+    try:
+        results = (
+            db.query(
+                AttackEventModel.source_ip,
+                func.count(AttackEventModel.id).label("total_events"),
+            )
+            .group_by(AttackEventModel.source_ip)
+            .order_by(func.count(AttackEventModel.id).desc())
+            .all()
+        )
+
+        return [
+            {
+                "source_ip": source_ip,
+                "total_events": total_events,
+            }
+            for source_ip, total_events in results
         ]
     finally:
         db.close()
