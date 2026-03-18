@@ -84,3 +84,34 @@ def list_events():
         ]
     finally:
         db.close()
+
+@app.get("/sessions/{session_id}")
+def get_session_events(session_id: str):
+    db = SessionLocal()
+    try:
+        events = (
+            db.query(AttackEventModel)
+            .filter(AttackEventModel.session_id == session_id)
+            .order_by(AttackEventModel.id.asc())
+            .all()
+        )
+
+        return [
+            {
+                "id": event.id,
+                "event_source": event.event_source,
+                "event_type": event.event_type,
+                "source_ip": event.source_ip,
+                "timestamp": event.timestamp,
+                "session_id": event.session_id,
+                "username": event.username,
+                "password": event.password,
+                "success": event.success,
+                "command": event.command,
+                "duration": event.duration,
+                "raw_event": event.raw_event,
+            }
+            for event in events
+        ]
+    finally:
+        db.close()
