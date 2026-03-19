@@ -1,0 +1,184 @@
+services:
+  # =========================
+  # SERVICIO: COLLECTOR API
+  # =========================
+  # Este contenedor expone la API que recibe eventos del forwarder
+  # y los guarda en PostgreSQL.
+  collector-api:
+    # En vez de usar una imagen preconstruida, Docker la construye
+    # usando el Dockerfile que hay dentro de ../collector-api
+    build:
+      context: ../collector-api
+
+    # Indica que primero debe arrancar postgres.
+    # OJO: esto NO garantiza que postgres ya esté listo para aceptar conexiones,
+    # solo que el contenedor de postgres se arranca antes.
+    depends_on:
+      - postgres
+
+    # Carga variables desde el archivo backend.env
+    # Aquí pondrás cosas como:
+    # - DB_NAME
+    # - DB_USER
+    # - DB_PASSWORD
+    # - TAILSCALE_IP
+    env_file:
+      - ./backend.env
+
+    # Variables de entorno que recibirá el contenedor.
+    environment:
+      # Nombre DNS interno del contenedor de PostgreSQL dentro de la red Docker.
+      # Como ambos están en la misma red, collector puede encontrar a postgres por este nombre.
+      DB_HOST: postgres
+
+      # Puerto interno de PostgreSQL.
+      DB_PORT: 5432
+
+      # Nombre de la base de datos.
+      DB_NAME: ${DB_NAME}
+
+      # Usuario de la base de datos.
+      DB_USER: ${DB_USER}
+
+      # Contraseña de la base de datos.
+      # Para una v1 está bien así, aunque en una versión más dura también la moveríamos a secrets.
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      # Ruta dentro del contenedor donde Docker montará el secreto con la API key.
+      # Tu aplicación leerá la key desde este archivo.
+      COLLECTOR_API_KEY_FILE: /run/secrets/collector_api_key
+
+    # Publica el puerto 8000 del contenedor al puerto 8000 del host,
+    # PERO solo ligado a la IP de Tailscale del VPS.
+    #
+    # Esto es clave:
+    # - NO se publica en 0.0.0.0
+    # - NO queda abierto a toda Internet
+    # - solo será accesible desde la red privada Tailscale
+    #
+    # Formato:
+    # IP_DEL_HOST:PUERTO_HOST:PUERTO_CONTENEDOR
+    ports:
+      - "${TAILSCALE_IP}:8000:8000"
+
+    # Si el contenedor se cae, Docker lo reinicia automáticamente,
+    # salvo que tú lo hayas parado manualmente.
+    restart: unless-stopped
+
+    # Hace el filesystem del contenedor de solo lectura.
+    # Muy útil en seguridad:
+    # - evita que el proceso escriba libremente por el sistema
+    # - dificulta persistencia maliciosa si alguien ejecuta algo dentro
+    read_only: true
+
+    # Crea un directorio /tmp temporal en memoria.
+    # Como el contenedor es read_only, si la app necesita espacio temporal,
+    # lo tendrá aquí sin escribir al disco persistente.
+    tmpfs:
+      - /tmp
+
+    # Impide que el proceso gane privilegios nuevos.
+    # Muy buena medida de hardening.
+    security_opt:
+      - no-new-privileges:true
+
+    # Elimina TODAS las Linux capabilities del contenedor.
+    # Esto reduce privilegios al mínimo.
+    # Si la app no necesita privilegios especiales, mejor quitarlos todos.
+    cap_drop:
+      - ALL
+
+    # Da acceso a este contenedor al secreto "collector_api_key".
+    # Docker lo montará como archivo en /run/secrets/collector_api_key
+    secrets:
+      - collector_api_key
+
+    # Conecta este contenedor a la red privada backend_net.
+    # Gracias a esto, puede hablar con postgres por DNS interno.
+    networks:
+      - backend_net
+
+  # =========================
+  # SERVICIO: POSTGRESQL
+  # =========================
+  postgres:
+    # Usa la imagen oficial de PostgreSQL versión 16.
+    # Mejor usar una versión fija que "latest".
+    image: postgres:16
+
+    # Nombre fijo del contenedor.
+    # No aporta seguridad, pero ayuda a reconocerlo rápido.
+    container_name: trapnet-postgres
+
+    # Carga variables desde backend.env
+    env_file:
+      - ./backend.env
+
+    # Variables de entorno que PostgreSQL usa en el primer arranque
+    # para crear base de datos, usuario y contraseña.
+    environment:
+      # Nombre de la base de datos que se creará.
+      POSTGRES_DB: ${DB_NAME}
+
+      # Usuario que se creará.
+      POSTGRES_USER: ${DB_USER}
+
+      # Contraseña del usuario.
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+    # Volumen persistente donde PostgreSQL guardará sus datos.
+    # Sin esto, si borras el contenedor, perderías la base de datos.
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+    # Reinicio automático si se cae.
+    restart: unless-stopped
+
+    # Conectado a la misma red privada que collector-api.
+    networks:
+      - backend_net
+
+    # MUY IMPORTANTE:
+    # No hay sección "ports".
+    # Eso significa que PostgreSQL NO se publica al exterior.
+    # Solo es accesible desde otros contenedores de la red backend_net.
+
+# =========================
+# SECRETOS
+# =========================
+secrets:
+  # Definimos un secreto llamado collector_api_key.
+  collector_api_key:
+    # Su contenido sale de este archivo local del VPS.
+    # Este archivo NO debe subirse a Git.
+    file: ./secrets/collector_api_key.txt
+
+# =========================
+# REDES
+# =========================
+networks:
+  # Red privada del backend.
+  backend_net:
+    # Tipo de red bridge de Docker.
+    driver: bridge
+
+    # "internal: true" hace que esta red quede aislada externamente.
+    # Los contenedores dentro de esta red pueden hablar entre ellos,
+    # pero la red en sí no está pensada para salida/entrada externa normal.
+    #
+    # OJO:
+    # si un contenedor publica puertos con "ports", esos puertos sí podrán exponerse
+    # según como los publiques.
+    #
+    # En nuestro caso:
+    # - postgres no publica nada
+    # - collector-api publica solo en la IP Tailscale
+    
+    #internal: true
+
+# =========================
+# VOLÚMENES
+# =========================
+volumes:
+  # Volumen persistente para PostgreSQL
+  postgres-data:

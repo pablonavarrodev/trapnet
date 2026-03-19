@@ -1,0 +1,159 @@
+services:
+  # =========================
+  # SERVICIO: COWRIE
+  # =========================
+  # Este es el honeypot SSH expuesto a Internet.
+  # Aquí llegarán los ataques.
+  cowrie:
+    # Imagen de Cowrie.
+    # NOTA:
+    # para una v1 puedes usar esto, pero en producción seria mejor fijar versión
+    # concreta en vez de usar "latest".
+    image: cowrie/cowrie:latest
+
+    # Nombre fijo del contenedor para reconocerlo más fácilmente.
+    container_name: trapnet-cowrie
+
+    # Publica el puerto 2222 del contenedor al 2222 del host.
+    # Esto lo deja abierto en la IP pública del VPS.
+    #
+    # Es la exposición intencionada del sensor.
+    # Este es el único puerto que queremos público aquí.
+    ports:
+      - "2222:2222"
+
+    # Volúmenes persistentes de Cowrie.
+    volumes:
+      # Aquí se guardan logs, datos variables, sesiones, etc.
+      - cowrie-var:/cowrie/cowrie-git/var
+
+      # Aquí se guarda la configuración de Cowrie.
+      # Sirve para que no la pierdas al reiniciar el contenedor.
+      - cowrie-etc:/cowrie/cowrie-git/etc
+
+    # Reinicio automático si se cae.
+    restart: unless-stopped
+
+    # Impide obtener privilegios adicionales dentro del contenedor.
+    security_opt:
+      - no-new-privileges:true
+
+    # Elimina todas las Linux capabilities.
+    # Buena medida de hardening, pero conviene probar que Cowrie funcione bien así.
+    cap_drop:
+      - ALL
+
+    # Conecta Cowrie a la red privada del sensor.
+    networks:
+      - sensor_net
+
+  # =========================
+  # SERVICIO: FORWARDER
+  # =========================
+  # Este contenedor lee el log JSON de Cowrie
+  # y envía los eventos al collector-api.
+  forwarder:
+    # Docker construye la imagen desde el proyecto local ../forwarder
+    build:
+      context: ../forwarder
+
+    # Arranca cowrie antes que forwarder.
+    # OJO: esto no garantiza que Cowrie ya esté generando logs,
+    # solo que se arranca primero.
+    depends_on:
+      - cowrie
+
+    # Carga variables desde sensor.env
+    env_file:
+      - ./sensor.env
+
+    # Variables de entorno del forwarder.
+    environment:
+      # URL del collector.
+      # En producción debe apuntar a la IP Tailscale del VPS2.
+      COLLECTOR_API_URL: ${COLLECTOR_API_URL}
+
+      # Ruta dentro del contenedor al log JSON de Cowrie.
+      # El forwarder lee este archivo para detectar eventos.
+      COWRIE_LOG_PATH: /cowrie/var/log/cowrie/cowrie.json
+
+      # Cada cuántos segundos revisa el log.
+      POLL_INTERVAL_SECONDS: 1
+
+      # Ruta donde Docker montará la API key como secreto.
+      COLLECTOR_API_KEY_FILE: /run/secrets/collector_api_key
+
+    # Montamos el volumen de logs de Cowrie dentro del forwarder.
+    volumes:
+      # Lo montamos en SOLO LECTURA (:ro).
+      #
+      # Esto es muy importante:
+      # - el forwarder puede leer los logs
+      # - pero no puede modificarlos
+      - cowrie-var:/cowrie/var:ro
+
+    # Reinicio automático si se cae.
+    restart: unless-stopped
+
+    # Filesystem del contenedor en solo lectura.
+    # Muy buena medida de hardening para un proceso simple como este.
+    read_only: true
+
+    # Directorio temporal en memoria.
+    # Sirve como zona temporal porque el resto del contenedor es read_only.
+    tmpfs:
+      - /tmp
+
+    # Impide elevar privilegios.
+    security_opt:
+      - no-new-privileges:true
+
+    # Elimina todas las Linux capabilities.
+    cap_drop:
+      - ALL
+
+    # Da acceso al secreto con la API key.
+    secrets:
+      - collector_api_key
+
+    # Conecta el forwarder a la misma red que Cowrie.
+    networks:
+      - sensor_net
+
+    # MUY IMPORTANTE:
+    # No hay "ports" en forwarder.
+    # Eso significa que NO queda expuesto al exterior.
+    #
+    # Solo puede:
+    # - leer el log de Cowrie
+    # - y hacer peticiones salientes al collector
+
+# =========================
+# SECRETOS
+# =========================
+secrets:
+  # Secreto con la API key que el forwarder usa para autenticarse
+  # contra el collector-api.
+  collector_api_key:
+    # Archivo local en el VPS1.
+    # NO debe subirse al repositorio.
+    file: ./secrets/collector_api_key.txt
+
+# =========================
+# REDES
+# =========================
+networks:
+  # Red local de los contenedores del sensor.
+  sensor_net:
+    # Red tipo bridge normal de Docker.
+    driver: bridge
+
+# =========================
+# VOLÚMENES
+# =========================
+volumes:
+  # Volumen persistente para logs y datos variables de Cowrie.
+  cowrie-var:
+
+  # Volumen persistente para configuración de Cowrie.
+  cowrie-etc:

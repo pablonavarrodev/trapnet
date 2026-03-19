@@ -1,0 +1,2 @@
+Error response from daemon: No such container: infra-collector-api-1
+Error response from daemon: No such container: trapnet-postgres
