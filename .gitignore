@@ -5,3 +5,12 @@ __pycache__/
 .idea/
 .vscode/
 .DS_Store
+
+# secretos y envs de despliegue
+infra/secrets/*
+!infra/secrets/.gitkeep
+
+infra/*.env
+.env.production
+.env.backend
+.env.sensor

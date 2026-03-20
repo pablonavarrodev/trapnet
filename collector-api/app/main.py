@@ -1,15 +1,47 @@
+import os
+import secrets
 import time
 
-from fastapi import FastAPI
-from sqlalchemy import text
-
-from app.db import Base, engine, SessionLocal
-from app.models.event import AttackEventModel
-from app.schemas.event import AttackEvent
-from sqlalchemy import func
+from fastapi import FastAPI, Header, HTTPException
+from sqlalchemy import func, text
 from sqlalchemy.exc import OperationalError
 
+from app.db import Base, SessionLocal, engine
+from app.models.event import AttackEventModel
+from app.schemas.event import AttackEvent
+
 app = FastAPI(title="trapnet collector")
+
+
+def load_collector_api_key() -> str:
+    secret_path = os.getenv(
+        "COLLECTOR_API_KEY_FILE",
+        "/run/secrets/collector_api_key"
+    )
+
+    try:
+        with open(secret_path, "r", encoding="utf-8") as file:
+            value = file.read().strip()
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            f"[collector] secret file not found: {secret_path}"
+        ) from exc
+
+    if not value:
+        raise RuntimeError("[collector] collector api key is empty")
+
+    return value
+
+
+COLLECTOR_API_KEY = load_collector_api_key()
+
+
+def verify_api_key(x_api_key: str | None) -> None:
+    if x_api_key is None:
+        raise HTTPException(status_code=401, detail="missing api key")
+
+    if not secrets.compare_digest(x_api_key, COLLECTOR_API_KEY):
+        raise HTTPException(status_code=401, detail="invalid api key")
 
 
 @app.on_event("startup")
@@ -51,7 +83,9 @@ def health():
 
 
 @app.post("/events")
-def create_event(event: AttackEvent):
+def create_event(event: AttackEvent, x_api_key: str | None = Header(default=None)):
+    verify_api_key(x_api_key)
+
     db = SessionLocal()
     try:
         db_event = AttackEventModel(
@@ -72,7 +106,9 @@ def create_event(event: AttackEvent):
         db.refresh(db_event)
 
         print(
-            f"[collector] stored source={event.event_source} type={event.event_type} ip={event.source_ip} session={event.session_id}"
+            f"[collector] stored source={event.event_source} "
+            f"type={event.event_type} ip={event.source_ip} "
+            f"session={event.session_id}"
         )
 
         return {"received": True, "event_id": db_event.id}
@@ -105,6 +141,7 @@ def list_events():
         ]
     finally:
         db.close()
+
 
 @app.get("/sessions/{session_id}")
 def get_session_events(session_id: str):
