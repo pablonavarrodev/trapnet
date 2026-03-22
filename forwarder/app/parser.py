@@ -14,7 +14,7 @@ def base_event(raw_event: dict, event_type: str) -> dict:
     }
 
 
-def parse_cowrie_event(raw_event: dict) -> dict | None:
+def parse_cowrie_event(raw_event: dict) -> dict:
     eventid = raw_event.get("eventid")
 
     if eventid == "cowrie.session.connect":
@@ -41,4 +41,10 @@ def parse_cowrie_event(raw_event: dict) -> dict | None:
         event["duration"] = raw_event.get("duration")
         return event
 
-    return None
+    # Fallback:
+    # cualquier evento de Cowrie que aún no tengamos modelado
+    # se guarda igualmente para no perder información.
+    event = base_event(raw_event, "cowrie_unknown_event")
+    event["command"] = raw_event.get("input")
+    event["duration"] = raw_event.get("duration")
+    return event
