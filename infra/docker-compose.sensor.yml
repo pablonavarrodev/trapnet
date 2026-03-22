@@ -7,7 +7,7 @@ services:
   cowrie:
     # Imagen de Cowrie.
     # NOTA:
-    # para una v1 puedes usar esto, pero en producción seria mejor fijar versión
+    # En producción es mejor fijar versión
     # concreta en vez de usar "latest".
     image: cowrie/cowrie:latest
 
@@ -43,6 +43,16 @@ services:
     cap_drop:
       - ALL
 
+    # Healthcheck básico.
+    # No comprueba toda la lógica interna de Cowrie,
+    # pero al menos valida que el proceso principal sigue vivo.
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f cowrie >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
     # Conecta Cowrie a la red privada del sensor.
     networks:
       - sensor_net
@@ -57,11 +67,15 @@ services:
     build:
       context: ../forwarder
 
-    # Arranca cowrie antes que forwarder.
-    # OJO: esto no garantiza que Cowrie ya esté generando logs,
-    # solo que se arranca primero.
+    # Arranca forwarder después de Cowrie
+    # y, si Compose lo soporta, espera a que Cowrie esté healthy.
+    #
+    # OJO:
+    # esto mejora el arranque, pero NO sustituye la lógica robusta
+    # dentro del forwarder.
     depends_on:
-      - cowrie
+      cowrie:
+        condition: service_healthy
 
     # Carga variables desde sensor.env
     env_file:
@@ -83,6 +97,11 @@ services:
       # Ruta donde Docker montará la API key como secreto.
       COLLECTOR_API_KEY_FILE: /run/secrets/collector_api_key
 
+      # Directorio persistente para guardar estado del forwarder.
+      # Aquí deberías guardar offsets, checkpoints o cola local
+      # para no perder eventos al reiniciar.
+      FORWARDER_STATE_DIR: /app/state
+
     # Montamos el volumen de logs de Cowrie dentro del forwarder.
     volumes:
       # Lo montamos en SOLO LECTURA (:ro).
@@ -92,6 +111,12 @@ services:
       # - pero no puede modificarlos
       - cowrie-var:/cowrie/var:ro
 
+      # Volumen persistente propio del forwarder.
+      #
+      # Esto es clave para robustecer el pipeline:
+      # aquí puede guardar su estado local aunque el contenedor reinicie.
+      - forwarder-state:/app/state
+
     # Reinicio automático si se cae.
     restart: unless-stopped
 
@@ -99,10 +124,11 @@ services:
     # Muy buena medida de hardening para un proceso simple como este.
     read_only: true
 
-    # Directorio temporal en memoria.
-    # Sirve como zona temporal porque el resto del contenedor es read_only.
+    # Directorios temporales en memoria.
+    # Sirven como zonas temporales porque el resto del contenedor es read_only.
     tmpfs:
       - /tmp
+      - /run
 
     # Impide elevar privilegios.
     security_opt:
@@ -157,3 +183,7 @@ volumes:
 
   # Volumen persistente para configuración de Cowrie.
   cowrie-etc:
+
+  # Volumen persistente para el estado interno del forwarder.
+  # Aquí se pueden guardar offsets, checkpoints o cola local.
+  forwarder-state:
