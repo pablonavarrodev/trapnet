@@ -102,6 +102,11 @@ services:
       # para no perder eventos al reiniciar.
       FORWARDER_STATE_DIR: /app/state
 
+      # Base de datos SQLite local del forwarder.
+      # Debe ir en el volumen persistente del forwarder para no perder
+      # cola, offsets y estado al reiniciar.
+      FORWARDER_DB_PATH: /app/state/forwarder.db
+
     # Montamos el volumen de logs de Cowrie dentro del forwarder.
     volumes:
       # Lo montamos en SOLO LECTURA (:ro).
