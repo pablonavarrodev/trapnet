@@ -4,12 +4,17 @@ from fastapi import FastAPI
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 
+from app.api.routes import events, health, stats
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.models.event import AttackEventModel  # noqa: F401
 
 app = FastAPI(title=settings.APP_NAME)
+
+app.include_router(health.router)
+app.include_router(events.router)
+app.include_router(stats.router)
 
 
 @app.on_event("startup")
