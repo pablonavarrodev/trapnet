@@ -100,7 +100,7 @@ services:
       # Directorio persistente para guardar estado del forwarder.
       # Aquí deberías guardar offsets, checkpoints o cola local
       # para no perder eventos al reiniciar.
-      FORWARDER_STATE_DIR: /app/state
+      #FORWARDER_STATE_DIR: /app/state
 
       # Base de datos SQLite local del forwarder.
       # Debe ir en el volumen persistente del forwarder para no perder

@@ -1,7 +1,7 @@
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 
-from app.db import Base
+from app.db.base import Base
 
 
 class AttackEventModel(Base):
@@ -9,9 +9,9 @@ class AttackEventModel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     event_source = Column(String, nullable=False)
-    event_type = Column(String, nullable=False)
-    source_ip = Column(String, nullable=False)
-    timestamp = Column(DateTime, nullable=False)
+    event_type = Column(String, nullable=False, index=True)
+    source_ip = Column(String, nullable=False, index=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
     session_id = Column(String, nullable=False, index=True)
     username = Column(String, nullable=True)
     password = Column(String, nullable=True)
