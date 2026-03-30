@@ -15,7 +15,11 @@ from app.services.event_service import get_filtered_events
 router = APIRouter(tags=["events"])
 
 
-@router.post("/events", response_model=EventIngestResponse, dependencies=[Depends(require_api_key)])
+@router.post(
+    "/events",
+    response_model=EventIngestResponse,
+    dependencies=[Depends(require_api_key)],
+)
 def create_event(event: AttackEvent, db: Session = Depends(get_db)):
     db_event = create_event_service(db, event)
 
@@ -38,6 +42,7 @@ def list_events(
     command_contains: str | None = None,
     from_ts: datetime | None = None,
     to_ts: datetime | None = None,
+    exclude_internal: bool = Query(default=False),  # 👈 AÑADIDO
     db: Session = Depends(get_db),
 ):
     return get_filtered_events(
@@ -50,22 +55,34 @@ def list_events(
         command_contains=command_contains,
         from_ts=from_ts,
         to_ts=to_ts,
+        exclude_internal=exclude_internal,  # 👈 AÑADIDO
     )
 
 
 @router.get("/events/recent", response_model=list[AttackEventResponse])
 def recent_events(
     limit: int = Query(default=50, ge=1, le=200),
+    exclude_internal: bool = Query(default=False),  # 👈 AÑADIDO
     db: Session = Depends(get_db),
 ):
-    return get_filtered_events(db, limit=limit, offset=0)
+    return get_filtered_events(
+        db,
+        limit=limit,
+        offset=0,
+        exclude_internal=exclude_internal,  # 👈 AÑADIDO
+    )
 
 
 @router.get("/sessions/{session_id}", response_model=list[AttackEventResponse])
-def get_session_events(session_id: str, db: Session = Depends(get_db)):
+def get_session_events(
+    session_id: str,
+    exclude_internal: bool = Query(default=False),  # 👈 OPCIONAL pero útil
+    db: Session = Depends(get_db),
+):
     return get_filtered_events(
         db,
         limit=1000,
         offset=0,
         session_id=session_id,
+        exclude_internal=exclude_internal,  # 👈 AÑADIDO
     )

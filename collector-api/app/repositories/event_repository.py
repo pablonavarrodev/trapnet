@@ -16,6 +16,7 @@ def list_events(
     command_contains: str | None = None,
     from_ts: datetime | None = None,
     to_ts: datetime | None = None,
+    exclude_internal: bool = False,
 ):
     query = db.query(AttackEventModel)
 
@@ -36,6 +37,9 @@ def list_events(
 
     if to_ts:
         query = query.filter(AttackEventModel.timestamp <= to_ts)
+
+    if exclude_internal:
+        query = query.filter(AttackEventModel.source_ip != "127.0.0.1")
 
     return (
         query.order_by(AttackEventModel.id.desc())
