@@ -44,3 +44,15 @@ class EventIngestResponse(BaseModel):
 class SourceIpStatsResponse(BaseModel):
     source_ip: str
     total_events: int
+
+class EventTypeStatsResponse(BaseModel):
+    event_type: str
+    total_events: int
+
+
+class SessionStatsResponse(BaseModel):
+    session_id: str
+    source_ip: str
+    total_events: int
+    first_seen: datetime
+    last_seen: datetime
