@@ -34,6 +34,12 @@ services:
     # Reinicio automático si se cae.
     restart: unless-stopped
 
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
     # Impide obtener privilegios adicionales dentro del contenedor.
     security_opt:
       - no-new-privileges:true
@@ -124,6 +130,12 @@ services:
 
     # Reinicio automático si se cae.
     restart: unless-stopped
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
     # Filesystem del contenedor en solo lectura.
     # Muy buena medida de hardening para un proceso simple como este.

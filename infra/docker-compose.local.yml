@@ -11,6 +11,12 @@ services:
       DB_PASSWORD: trapnet
     ports:
       - "8000:8000"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   forwarder:
     build: ../forwarder
@@ -23,6 +29,12 @@ services:
       POLL_INTERVAL_SECONDS: 1
     volumes:
       - cowrie-var:/cowrie/var:ro
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   cowrie:
     image: cowrie/cowrie:latest
@@ -33,6 +45,11 @@ services:
       - cowrie-var:/cowrie/cowrie-git/var
       - cowrie-etc:/cowrie/cowrie-git/etc
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   postgres:
     image: postgres:16
@@ -46,6 +63,11 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   cowrie-var:

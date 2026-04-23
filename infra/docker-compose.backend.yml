@@ -65,6 +65,12 @@ services:
     # salvo que tú lo hayas parado manualmente.
     restart: unless-stopped
 
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
     # Hace el filesystem del contenedor de solo lectura.
     # Muy útil en seguridad:
     # - evita que el proceso escriba libremente por el sistema
@@ -133,6 +139,12 @@ services:
 
     # Reinicio automático si se cae.
     restart: unless-stopped
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
     # Conectado a la misma red privada que collector-api.
     networks:
