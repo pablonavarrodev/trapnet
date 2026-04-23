@@ -14,3 +14,6 @@ infra/*.env
 .env.production
 .env.backend
 .env.sensor
+
+trapnet.tar.gz
+*.tar.gz
