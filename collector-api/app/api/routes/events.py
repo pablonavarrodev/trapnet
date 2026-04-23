@@ -22,13 +22,6 @@ router = APIRouter(tags=["events"])
 )
 def create_event(event: AttackEvent, db: Session = Depends(get_db)):
     db_event = create_event_service(db, event)
-
-    print(
-        f"[collector] stored source={event.event_source} "
-        f"type={event.event_type} ip={event.source_ip} "
-        f"session={event.session_id}"
-    )
-
     return {"received": True, "event_id": db_event.id}
 
 
@@ -42,7 +35,7 @@ def list_events(
     command_contains: str | None = None,
     from_ts: datetime | None = None,
     to_ts: datetime | None = None,
-    exclude_internal: bool = Query(default=False),  # 👈 AÑADIDO
+    exclude_internal: bool = Query(default=False),
     db: Session = Depends(get_db),
 ):
     return get_filtered_events(
@@ -55,28 +48,28 @@ def list_events(
         command_contains=command_contains,
         from_ts=from_ts,
         to_ts=to_ts,
-        exclude_internal=exclude_internal,  # 👈 AÑADIDO
+        exclude_internal=exclude_internal,
     )
 
 
 @router.get("/events/recent", response_model=list[AttackEventResponse])
 def recent_events(
     limit: int = Query(default=50, ge=1, le=200),
-    exclude_internal: bool = Query(default=False),  # 👈 AÑADIDO
+    exclude_internal: bool = Query(default=False),
     db: Session = Depends(get_db),
 ):
     return get_filtered_events(
         db,
         limit=limit,
         offset=0,
-        exclude_internal=exclude_internal,  # 👈 AÑADIDO
+        exclude_internal=exclude_internal,
     )
 
 
 @router.get("/sessions/{session_id}", response_model=list[AttackEventResponse])
 def get_session_events(
     session_id: str,
-    exclude_internal: bool = Query(default=False),  # 👈 OPCIONAL pero útil
+    exclude_internal: bool = Query(default=False),
     db: Session = Depends(get_db),
 ):
     return get_filtered_events(
@@ -84,5 +77,5 @@ def get_session_events(
         limit=1000,
         offset=0,
         session_id=session_id,
-        exclude_internal=exclude_internal,  # 👈 AÑADIDO
+        exclude_internal=exclude_internal,
     )

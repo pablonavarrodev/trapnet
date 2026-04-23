@@ -1,3 +1,4 @@
+import logging
 import time
 
 from fastapi import FastAPI
@@ -9,6 +10,12 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.models.event import AttackEventModel  # noqa: F401
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [collector] %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -32,12 +39,14 @@ def on_startup():
             finally:
                 db.close()
 
-            print("[collector] database connection established")
+            logger.info("database connection established")
             return
         except OperationalError as exc:
-            print(
-                f"[collector] database not ready yet "
-                f"(attempt {attempt}/{max_retries}): {exc}"
+            logger.warning(
+                "database not ready yet (attempt %s/%s): %s",
+                attempt,
+                max_retries,
+                exc,
             )
             time.sleep(retry_delay)
 
